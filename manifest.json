@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Yap Video URL Copier",
+  "version": "1.0",
+  "description": "Добавляет пункт в контекстное меню плеера yap.ru и копирует прямой URL видео",
+  "permissions": ["clipboardWrite"],
+  "host_permissions": [
+    "*://*.yap.ru/*",
+    "*://*.yapfiles.ru/*",
+    "*://api.yapfiles.ru/*"
+  ],
+  "content_scripts": [
+  {
+    "matches": [
+      "*://*.yap.ru/*",
+      "*://*.yapfiles.ru/*",
+      "*://api.yapfiles.ru/*"
+    ],
+    "js": ["content.js"],
+    "run_at": "document_end",
+    "all_frames": true
+  }
+]
+}
