@@ -24,7 +24,13 @@ function addCopyButton(menu) {
     }
   });
 
-  menu.appendChild(newItem);
+  const fullscreenControl = menu.querySelector(".vjs-fullscreen-control");
+  if (fullscreenControl) {
+    menu.insertBefore(newItem, fullscreenControl);
+  } else {
+    menu.appendChild(newItem); // На случай, если элемент .vjs-fullscreen-control не найден
+  }
+
 
 
 
