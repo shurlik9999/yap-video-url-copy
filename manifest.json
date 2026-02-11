@@ -7,14 +7,18 @@
   "host_permissions": [
     "*://*.yap.ru/*",
     "*://*.yapfiles.ru/*",
-    "*://api.yapfiles.ru/*"
+    "*://api.yapfiles.ru/*",
+    "*://*.yapfiles.com/*",
+    "*://api-ru.yapfiles.com/*"
   ],
   "content_scripts": [
   {
     "matches": [
       "*://*.yap.ru/*",
       "*://*.yapfiles.ru/*",
-      "*://api.yapfiles.ru/*"
+      "*://api.yapfiles.ru/*",
+      "*://*.yapfiles.com/*",
+      "*://api-ru.yapfiles.com/*"
     ],
     "js": ["content.js"],
     "run_at": "document_end",
