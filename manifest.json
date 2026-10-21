@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Yap Video URL Copier",
-  "version": "1.0",
-  "description": "Добавляет пункт в контекстное меню плеера yap.ru и копирует прямой URL видео",
-  "permissions": ["clipboardWrite"],
+  "version": "1.2",
+  "description": "Добавляет кнопки копирования ссылки и скачивания видео в плеер ЯП",
+  "permissions": ["clipboardWrite", "downloads"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "host_permissions": [
     "*://*.yap.ru/*",
     "*://*.yapfiles.ru/*",

@@ -1,70 +1,74 @@
 console.log("[YAP EXT] Скрипт загружен", location.href);
 
-function addCopyButton(menu) {
-  if (menu.querySelector(".custom-copy-button")) return;
+function getVideoSource(menu) {
+  const player = menu.closest(".video-js") || menu.parentElement;
+  const videos = document.querySelectorAll("video");
+  const video = player?.querySelector("video") || (videos.length === 1 ? videos[0] : null);
+  return video && (video.currentSrc || video.src || video.querySelector("source[src]")?.src);
+}
 
-  const newItem = document.createElement("button");
-  newItem.className = "vjs-menu-item vjs-control vjs-button custom-copy-button";
-  newItem.role = "";
-  //set style
-  newItem.style.cssText = `cursor: pointer; padding: 4px 8px; margin-left:6px; background: transparent; border: none; color: inherit;`;
+function createPlayerButton(className, label, title) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `vjs-menu-item vjs-control vjs-button ${className}`;
+  button.textContent = label;
+  button.title = title;
+  button.setAttribute("aria-label", title);
+  button.style.cssText = "cursor: pointer; padding: 4px 8px; margin-left: 6px; width: auto; flex: 0 0 auto; background: transparent; border: none; color: inherit;";
+  return button;
+}
 
-  const span = document.createElement("span");
-  span.className = "vjs-control vjs-button";
-  span.textContent = "Copy";
-
-  newItem.appendChild(span);
-
-  newItem.addEventListener("click", () => {
-    // ищем видео внутри текущего контекста (включая iframe)
-    const video = menu.querySelector("video") || document.querySelector("video");
-    if (video && (video.currentSrc || video.src)) {
-      const src = video.currentSrc || video.src;
-      fallbackCopyTextToClipboard(src);
-    } else {
-      alert("Видео не найдено или нет src.");
+async function downloadVideo(menu, button) {
+  button.disabled = true;
+  try {
+    const src = getVideoSource(menu);
+    if (!src) {
+      throw new Error("Запустите видео и попробуйте ещё раз.");
     }
-  });
+    if (!/^https?:\/\//i.test(src)) {
+      throw new Error("Для этого видео нет прямой ссылки для скачивания.");
+    }
 
-  const fullscreenControl = menu.querySelector(".vjs-fullscreen-control");
-  if (fullscreenControl) {
-    menu.insertBefore(newItem, fullscreenControl);
-  } else {
-    // пытаемся найти конец панели управления или просто добавляем в menu
-    const controlBar = menu.querySelector(".vjs-control-bar");
-    if (controlBar) controlBar.appendChild(newItem);
-    else menu.appendChild(newItem); // На случай, если элемент .vjs-fullscreen-control не найден
+    const response = await chrome.runtime.sendMessage({ type: "download-video", url: src });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Не удалось начать скачивание.");
+    }
+  } catch (error) {
+    console.error("[YAP EXT] Ошибка скачивания:", error);
+    alert("Не удалось скачать видео. " + error.message);
+  } finally {
+    button.disabled = false;
   }
 }
 
-// function addCopyButton(menu) {
-//   if (menu.querySelector(".custom-copy-button")) return;
-//
-//   const btn = document.createElement("div");
-//   btn.textContent = "📋 Copy URL";
-//   btn.className = "custom-copy-button";
-//   btn.style.cssText = `
-//     padding: 5px 10px;
-//     cursor: pointer;
-//     color: white;
-//     background: #444;
-//     font-size: 13px;
-//     border-top: 1px solid #666;
-//   `;
-//
-//   btn.addEventListener("click", () => {
-//     const video = document.querySelector("video");
-//     if (video && video.src) {
-//       fallbackCopyTextToClipboard(video.src);
-//     } else {
-//       alert("Видео не найдено или нет src.");
-//     }
-//   });
-//
-//   // Добавляем не внутрь .context-menu-list, а рядом
-//   menu.appendChild(btn);
-// }
+function addVideoButtons(menu) {
+  const controls = menu.querySelector(".vjs-control-bar") || menu;
+  let copyButton = controls.querySelector(".custom-copy-button");
+  if (!copyButton) {
+    copyButton = createPlayerButton("custom-copy-button", "Copy", "Копировать ссылку на видео");
+    copyButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const src = getVideoSource(controls);
+      if (src) fallbackCopyTextToClipboard(src);
+      else alert("Видео не найдено или нет src.");
+    });
 
+    const fullscreenControl = controls.querySelector(".vjs-fullscreen-control");
+    if (fullscreenControl) fullscreenControl.before(copyButton);
+    else controls.appendChild(copyButton);
+  }
+
+  if (!controls.querySelector(".custom-download-button")) {
+    const downloadButton = createPlayerButton("custom-download-button", "Скачать", "Скачать видео");
+    downloadButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      downloadVideo(controls, downloadButton);
+    });
+    copyButton.after(downloadButton);
+  }
+}
 
 function fallbackCopyTextToClipboard(text) {
   const textarea = document.createElement("textarea");
@@ -90,19 +94,11 @@ function watchForContextMenu() {
     for (const m of mutations) {
       for (const node of m.addedNodes) {
         if (node.nodeType === 1) {
-          // Иногда класс может называться vjs-control-bar, иногда добавляется обёртка с другим именем.
-          if (node.matches && node.matches(".vjs-control-bar, .vjs-controls, .vjs-control-bar *")) {
-            const menu = node.matches(".vjs-control-bar, .vjs-controls") ? node : node.closest('.vjs-control-bar') || node;
-            console.log("[YAP EXT] Меню найдено (observer):", menu);
-            addCopyButton(menu);
+          if (node.matches(".vjs-control-bar, .vjs-controls")) {
+            addVideoButtons(node);
           }
 
-          // Также на старте, если плеер уже загружен
-          const existing = node.querySelector && (node.querySelector('.vjs-control-bar') || node.querySelector('.vjs-controls'));
-          if (existing) {
-            console.log("[YAP EXT] Меню найдено (existing inside added node):", existing);
-            addCopyButton(existing);
-          }
+          node.querySelectorAll(".vjs-control-bar, .vjs-controls").forEach(addVideoButtons);
         }
       }
     }
@@ -114,11 +110,7 @@ function watchForContextMenu() {
   });
 
   // Попробуем найти существующие элементы сразу
-  const initial = document.querySelector('.vjs-control-bar, .vjs-controls');
-  if (initial) {
-    console.log('[YAP EXT] Меню найдено при инициализации:', initial);
-    addCopyButton(initial);
-  }
+  document.querySelectorAll(".vjs-control-bar, .vjs-controls").forEach(addVideoButtons);
 }
 
 function waitForBodyAndRun() {
